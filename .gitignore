@@ -1,0 +1,9 @@
+.DS_Store 
+config.js
+node_modules/
+*.log
+.env
+.agent/
+.git-backup-*
+assets/
+deploy.sh
