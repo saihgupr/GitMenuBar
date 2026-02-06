@@ -38,6 +38,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Check login item status after controller is created
         statusBarController?.loginItemManager.checkLoginItemStatus()
+
+        // Check for updates on launch
+        UpdateChecker.shared.checkForUpdatesOnLaunch()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -148,4 +151,3 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 }
-
