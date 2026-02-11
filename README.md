@@ -32,6 +32,7 @@ The application emphasizes safe workflows by clearly explaining actions and prov
 - **Instant Repository Management**: Create, delete, and toggle visibility of GitHub repositories with a single click - no web browser required.
 - **Streamlined Workflow**: View modified, staged, and untracked files and commit directly from your menu bar.
 - **One-Step Sync**: Commit and push in a single action using `⌘Enter`.
+- **Flexible Pulling & Rebasing**: When your local branch is behind, syncing gives you the choice to merge, rebase, or pull changes to a fresh branch.
 - **Smart Branching**: Switch, create, and merge branches with automatic handling of uncommitted changes.
 - **History & Recovery**: Browse full commit history and reset to any previous state easily.
 - **Wipe & Restart**: Perfect for project templates. Resets repository history while preserving current files, with automatic safety backups.
