@@ -52,7 +52,7 @@ The application emphasizes safe workflows by clearly explaining actions and prov
 
 ## Requirements 
 
-- macOS 13.0 or later
+- macOS 15.5 or later
 - Git installed on your system
 - GitHub account (optional, for remote features)
 
@@ -96,7 +96,3 @@ open -a "GitMenuBar" "/path/to/your/folder"
 If you run into trouble or have an idea, please [open an issue](https://github.com/saihgupr/GitMenuBar/issues) on GitHub.
 
 GitMenuBar is **open-source** and **free**. If you find it useful, consider giving it a star ⭐ or making a [donation](https://ko-fi.com/saihgupr) to support development.
-
----
-
-[MIT License](LICENSE) © 2026 Saihgupr

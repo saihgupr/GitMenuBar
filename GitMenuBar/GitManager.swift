@@ -666,18 +666,18 @@ class GitManager: ObservableObject {
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyyMMdd-HHmmss"
             let timestamp = dateFormatter.string(from: Date())
-            let gitPath = (self.storedRepoPath as NSString).appendingPathComponent(".git")
-            let backupPath = (self.storedRepoPath as NSString).appendingPathComponent(".git-backup-\(timestamp)")
+            let gitPath = ".git"
+            let backupPath = ".git-backup-\(timestamp)"
             
-            do {
-                try FileManager.default.copyItem(atPath: gitPath, toPath: backupPath)
-                print("Backed up .git folder to: \(backupPath)")
-            } catch {
+            // Use shell 'cp -R' instead of FileManager.copyItem to avoid xattr permission errors on SMB
+            let backupResult = self.executeCommand(in: self.storedRepoPath, executable: "/bin/cp", args: ["-R", gitPath, backupPath])
+            if backupResult.failure {
                 DispatchQueue.main.async {
-                    completion(.failure(NSError(domain: "GitManager", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to backup .git folder: \(error.localizedDescription)"])))
+                    completion(.failure(NSError(domain: "GitManager", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to backup .git folder: \(backupResult.output)"])))
                 }
                 return
             }
+            print("Backed up .git folder to: \(backupPath)")
             
             // Step 1: Detect current branch to wipe
             let branchParseResult = self.executeGitCommand(in: self.storedRepoPath, args: ["rev-parse", "--abbrev-ref", "HEAD"])
@@ -761,8 +761,12 @@ class GitManager: ObservableObject {
     }
 
     private func executeGitCommand(in directory: String, args: [String], useAuth: Bool = false) -> (output: String, failure: Bool) {
+        return executeCommand(in: directory, executable: "/usr/bin/git", args: args, useAuth: useAuth)
+    }
+    
+    private func executeCommand(in directory: String, executable: String, args: [String], useAuth: Bool = false) -> (output: String, failure: Bool) {
         let task = Process()
-        task.launchPath = "/usr/bin/git"
+        task.launchPath = executable
         task.arguments = args
         task.currentDirectoryPath = directory
         
