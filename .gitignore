@@ -7,3 +7,11 @@ node_modules/
 .git-backup-*
 assets/
 deploy.sh
+
+# Build Artifacts
+build/
+DerivedData/
+
+# Xcode User Data
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/
