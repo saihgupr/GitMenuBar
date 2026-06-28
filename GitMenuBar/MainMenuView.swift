@@ -1347,8 +1347,9 @@ struct MainMenuView: View {
                                     )
                                 }
                             }
+                            .padding(.bottom, 2)
                         }
-                        .frame(height: min(CGFloat(filteredPaths.count * 26), 130))
+                        .frame(height: min(CGFloat(filteredPaths.count * 28), 140))
                     }
                     .padding(.top, 4)
                 }
