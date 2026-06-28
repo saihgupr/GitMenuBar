@@ -140,9 +140,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         current.removeAll { $0 == path }
         // Add to top
         current.insert(path, at: 0)
-        // Keep only last 5
-        if current.count > 5 {
-            current = Array(current.prefix(5))
+        // Keep only last 20
+        if current.count > 20 {
+            current = Array(current.prefix(20))
         }
         
         // Save

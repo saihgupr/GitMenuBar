@@ -1290,7 +1290,8 @@ struct MainMenuView: View {
                 }
 
 
-                if !recentPaths.isEmpty {
+                let filteredPaths = recentPaths.filter { $0 != UserDefaults.standard.string(forKey: "gitRepoPath") }
+                if !filteredPaths.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             Text("Recently Used")
@@ -1312,37 +1313,42 @@ struct MainMenuView: View {
                         }
                         .help("Click to toggle between full path and project name")
                         
-                        ForEach(recentPaths.filter { $0 != UserDefaults.standard.string(forKey: "gitRepoPath") }.prefix(5), id: \.self) { path in
-                            let abbreviatedPath = (path as NSString).abbreviatingWithTildeInPath
-                            let displayName = showFullPathInRecents ? abbreviatedPath : URL(fileURLWithPath: path).lastPathComponent
-                            RecentPathRowView(
-                                displayText: displayName,
-                                fullPath: abbreviatedPath,
-                                onTap: {
-                                    // Check if this is a git repository
-                                    if !gitManager.isGitRepository(at: path) {
-                                        // Not a git repo - offer to create one if GitHub is connected
-                                        if githubAuthManager.isAuthenticated {
-                                            createRepoPath = CreateRepoPath(path: path)
-                                        } else {
-                                            // Just set the path anyway - user can manually init git
-                                            UserDefaults.standard.set(path, forKey: "gitRepoPath")
-                                            addToRecents(path)
-                                            gitManager.refresh {
-                                                showingSettings = false
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(filteredPaths, id: \.self) { path in
+                                    let abbreviatedPath = (path as NSString).abbreviatingWithTildeInPath
+                                    let displayName = showFullPathInRecents ? abbreviatedPath : URL(fileURLWithPath: path).lastPathComponent
+                                    RecentPathRowView(
+                                        displayText: displayName,
+                                        fullPath: abbreviatedPath,
+                                        onTap: {
+                                            // Check if this is a git repository
+                                            if !gitManager.isGitRepository(at: path) {
+                                                // Not a git repo - offer to create one if GitHub is connected
+                                                if githubAuthManager.isAuthenticated {
+                                                    createRepoPath = CreateRepoPath(path: path)
+                                                } else {
+                                                    // Just set the path anyway - user can manually init git
+                                                    UserDefaults.standard.set(path, forKey: "gitRepoPath")
+                                                    addToRecents(path)
+                                                    gitManager.refresh {
+                                                        showingSettings = false
+                                                    }
+                                                }
+                                            } else {
+                                                // Is a git repo - set it normally
+                                                UserDefaults.standard.set(path, forKey: "gitRepoPath")
+                                                addToRecents(path)
+                                                gitManager.refresh {
+                                                    showingSettings = false
+                                                }
                                             }
                                         }
-                                    } else {
-                                        // Is a git repo - set it normally
-                                        UserDefaults.standard.set(path, forKey: "gitRepoPath")
-                                        addToRecents(path)
-                                        gitManager.refresh {
-                                            showingSettings = false
-                                        }
-                                    }
+                                    )
                                 }
-                            )
+                            }
                         }
+                        .frame(height: min(CGFloat(filteredPaths.count * 26), 130))
                     }
                     .padding(.top, 4)
                 }
@@ -1473,9 +1479,9 @@ struct MainMenuView: View {
         current.removeAll { $0 == path }
         // Add to top
         current.insert(path, at: 0)
-        // Keep only last 5 to ensure we have enough to show 3 others
-        if current.count > 5 {
-            current = Array(current.prefix(5))
+        // Keep only last 20 to ensure we have enough to scroll
+        if current.count > 20 {
+            current = Array(current.prefix(20))
         }
         
         if let encoded = try? JSONEncoder().encode(current) {
