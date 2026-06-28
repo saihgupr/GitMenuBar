@@ -86,6 +86,8 @@ To enable push/pull and repository management, go to **Settings** → **Connect 
 
 **Resetting**: Use the **Reset** button in the main view to discard local changes, or **Wipe** in Settings for a fresh start with a clean history.
 
+**Recently Used Toggle**: Click the **Recently Used** header in Settings to toggle between displaying clean project folder names and full path names.
+
 **Command Line Tip**: You can quickly open any folder in GitMenuBar from your terminal using:
 ```bash
 open -a "GitMenuBar" "/path/to/your/folder"
