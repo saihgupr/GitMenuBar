@@ -7,6 +7,7 @@ node_modules/
 .git-backup-*
 assets/
 deploy.sh
+specs/
 
 # Build Artifacts
 build/

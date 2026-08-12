@@ -68,6 +68,9 @@ struct MainMenuView: View {
     @State private var showBranchDeleteConfirmation = false
     @State private var branchNameToDelete = ""
     
+    // Title scroll state
+    @State private var lastTitleScrollTime: Date = Date.distantPast
+
 
     
 
@@ -218,13 +221,16 @@ struct MainMenuView: View {
                                 .onLongPressGesture(minimumDuration: 2.0) {
                                     showRepoOptions = true
                                 }
-                                .onHover { inside in
-                                    if inside {
-                                        NSCursor.pointingHand.push()
-                                    } else {
-                                        NSCursor.pop()
+                                .modifier(TitleScrollWheelModifier(
+                                    onScroll: { deltaY in
+                                        cycleRecentRepo(scrollDelta: deltaY)
+                                    },
+                                    onHoverEnd: {
+                                        if let path = UserDefaults.standard.string(forKey: "gitRepoPath"), !path.isEmpty {
+                                            addToRecents(path)
+                                        }
                                     }
-                                }
+                                ))
 
                         } else {
                             Text("- \(projectName)")
@@ -232,6 +238,16 @@ struct MainMenuView: View {
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
                                 .truncationMode(.tail)
+                                .modifier(TitleScrollWheelModifier(
+                                    onScroll: { deltaY in
+                                        cycleRecentRepo(scrollDelta: deltaY)
+                                    },
+                                    onHoverEnd: {
+                                        if let path = UserDefaults.standard.string(forKey: "gitRepoPath"), !path.isEmpty {
+                                            addToRecents(path)
+                                        }
+                                    }
+                                ))
                         }
                     }
                 }
@@ -1490,6 +1506,33 @@ struct MainMenuView: View {
         }
     }
     
+    private func cycleRecentRepo(scrollDelta: CGFloat) {
+        let now = Date()
+        guard now.timeIntervalSince(lastTitleScrollTime) > 0.1 else { return }
+        
+        let paths = recentPaths
+        guard paths.count > 1 else { return }
+        
+        let currentPath = UserDefaults.standard.string(forKey: "gitRepoPath") ?? ""
+        let currentIndex = paths.firstIndex(of: currentPath) ?? 0
+        
+        let newIndex: Int
+        if scrollDelta < 0 {
+            // Scroll down -> next in list (clamped at bottom)
+            newIndex = min(currentIndex + 1, paths.count - 1)
+        } else {
+            // Scroll up -> previous in list (clamped at top)
+            newIndex = max(currentIndex - 1, 0)
+        }
+        
+        let targetPath = paths[newIndex]
+        guard targetPath != currentPath else { return }
+        
+        lastTitleScrollTime = now
+        UserDefaults.standard.set(targetPath, forKey: "gitRepoPath")
+        gitManager.refresh()
+    }
+    
     private func isCommitInFuture(_ commit: Commit) -> Bool {
         // A commit is "future" if it appears before current HEAD in the history list
         // This happens when we've reset backwards
@@ -1768,6 +1811,52 @@ struct VisualEffectView: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         nsView.blendingMode = blendingMode
+    }
+}
+
+struct TitleScrollWheelModifier: ViewModifier {
+    let onScroll: (CGFloat) -> Void
+    let onHoverEnd: () -> Void
+    
+    @State private var isHovering = false
+    @State private var monitor: Any? = nil
+    
+    func body(content: Content) -> some View {
+        content
+            .onHover { inside in
+                isHovering = inside
+                if inside {
+                    NSCursor.pointingHand.push()
+                    NSCursor.pointingHand.set()
+                    if monitor == nil {
+                        monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                            let delta = event.deltaY != 0 ? event.deltaY : event.scrollingDeltaY
+                            if abs(delta) > 0.01 {
+                                NSCursor.pointingHand.set()
+                                onScroll(delta)
+                                return nil
+                            }
+                            return event
+                        }
+                    }
+                } else {
+                    NSCursor.pop()
+                    if let m = monitor {
+                        NSEvent.removeMonitor(m)
+                        monitor = nil
+                    }
+                    onHoverEnd()
+                }
+            }
+            .onDisappear {
+                if isHovering {
+                    NSCursor.pop()
+                }
+                if let m = monitor {
+                    NSEvent.removeMonitor(m)
+                    monitor = nil
+                }
+            }
     }
 }
 

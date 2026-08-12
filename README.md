@@ -36,6 +36,7 @@ The application emphasizes safe workflows by clearly explaining actions and prov
 - **Smart Branching**: Switch, create, and merge branches with automatic handling of uncommitted changes.
 - **History & Recovery**: Browse full commit history and reset to any previous state easily.
 - **Wipe & Restart**: Perfect for project templates. Resets repository history while preserving current files, with automatic safety backups.
+- **Quick Hover-Scroll Switching**: Hover over the repository name in the header and scroll up or down to instantly cycle through recent projects.
 - **Native Experience**: A lightweight (5.2 MB) Swift app that lives in your menu bar and stays out of your way.
 
 <p align="center">
@@ -79,6 +80,8 @@ To enable push/pull and repository management, go to **Settings** → **Connect 
 **Committing**: Type your message in the main view. Press `Enter` to commit locally, or `⌘Enter` to commit and push immediately.
 
 **Branching**: Click the branch name to open the Branch Menu. From here you can switch, create, or right-click branches to rename, merge, or delete them.
+
+**Quick Repository Switch**: Hover your cursor over the repository name at the top of the header and scroll down or up to instantly cycle through your recent projects.
 
 **Navigation**: Click the repository name at the top to open it on GitHub, or `⌘Click` to reveal the local folder in Finder.
 
