@@ -218,7 +218,7 @@ struct MainMenuView: View {
                                         NSWorkspace.shared.open(finalURL)
                                     }
                                 }
-                                .onLongPressGesture(minimumDuration: 2.0) {
+                                .onLongPressGesture(minimumDuration: 0.5) {
                                     showRepoOptions = true
                                 }
                                 .modifier(TitleScrollWheelModifier(

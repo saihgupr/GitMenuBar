@@ -6,6 +6,7 @@
 
 import SwiftUI
 import AppKit
+import CoreServices
 
 @main
 struct GitMenuBarApp: App {
@@ -41,6 +42,62 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Check for updates on launch
         UpdateChecker.shared.checkForUpdatesOnLaunch()
+        
+        // Register URL scheme handler for gitmenubar://
+        NSAppleEventManager.shared().setEventHandler(
+            self,
+            andSelector: #selector(handleGetURLEvent(_:withReplyEvent:)),
+            forEventClass: AEEventClass(kInternetEventClass),
+            andEventID: AEEventID(kAEGetURL)
+        )
+    }
+    
+    // MARK: - Handle gitmenubar:// URL scheme
+    
+    /// Handles `gitmenubar://open?path=/path/to/repo&silent=true`
+    /// When `silent=true`, loads the repo into state without opening the popover.
+    @objc func handleGetURLEvent(_ event: NSAppleEventDescriptor, withReplyEvent replyEvent: NSAppleEventDescriptor) {
+        guard let urlString = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
+              let url = URL(string: urlString),
+              url.scheme == "gitmenubar",
+              url.host == "open" else {
+            return
+        }
+        
+        // Parse query params
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let queryItems = components.queryItems else {
+            return
+        }
+        
+        let params = Dictionary(uniqueKeysWithValues: queryItems.compactMap { item -> (String, String)? in
+            guard let value = item.value else { return nil }
+            return (item.name, value)
+        })
+        
+        guard let path = params["path"] else { return }
+        let silent = params["silent"] == "true"
+        
+        // Verify path exists and is a directory
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            print("GitMenuBar: Path is not a directory: \(path)")
+            return
+        }
+        
+        // Always update state
+        UserDefaults.standard.set(path, forKey: "gitRepoPath")
+        addToRecents(path)
+        
+        if silent {
+            // Silent mode: just refresh git state in background, no popup
+            statusBarController?.gitManager.refresh()
+        } else {
+            // Non-silent: behave like a normal open
+            let folderURL = URL(fileURLWithPath: path)
+            application(NSApp, open: [folderURL])
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -58,7 +115,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func application(_ application: NSApplication, open urls: [URL]) {
         // Handle folder paths passed via "open -a GitMenuBar /path/to/folder"
-        guard let folderUrl = urls.first else {
+        // Note: gitmenubar:// URL scheme is handled by handleGetURLEvent(_:withReplyEvent:)
+        guard let folderUrl = urls.first, folderUrl.scheme != "gitmenubar" else {
             return
         }
         
