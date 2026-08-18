@@ -83,6 +83,13 @@ struct MainMenuView: View {
         return decoded
     }
 
+    private var currentRepoName: String {
+        if let repoPath = UserDefaults.standard.string(forKey: "gitRepoPath"), !repoPath.isEmpty {
+            return URL(fileURLWithPath: repoPath).lastPathComponent
+        }
+        return "Repository"
+    }
+
     let closePopover: () -> Void
     let togglePopoverBehavior: () -> Void
     let initialCreateRepoPath: String?
@@ -104,6 +111,8 @@ struct MainMenuView: View {
                 settingsView
             } else if showingHistory {
                 historyView
+            } else if showSyncOptions {
+                syncOptionsView
             } else {
                 mainView
             }
@@ -133,14 +142,14 @@ struct MainMenuView: View {
         } message: {
             Text(gitManager.isPrivate ? "Anyone on the internet will be able to see this repository." : "You will choose who can see and commit to this repository.")
         }
-        .alert("Wipe Repository History?", isPresented: $showWipeConfirmation) {
+        .alert("Wipe '\(currentRepoName)' History?", isPresented: $showWipeConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Wipe", role: .destructive) {
                 wipeRepository()
             }
             .disabled(isWiping)
         } message: {
-            Text("This will permanently erase all commit history and reset the repository to a single 'Initial commit'. Your current files will be preserved. This action cannot be undone.")
+            Text("This will permanently erase all commit history for '\(currentRepoName)' and reset the repository to a single 'Initial commit'. Your current files will be preserved. This action cannot be undone.")
         }
         .alert("Wipe Failed", isPresented: .init(
             get: { wipeError != nil },
@@ -693,90 +702,6 @@ struct MainMenuView: View {
             }
             .padding(20)
             .frame(width: 300)
-        }
-        .sheet(isPresented: $showSyncOptions) {
-            VStack(spacing: 16) {
-                Text("Sync with Remote")
-                    .font(.system(size: 14, weight: .semibold))
-                
-                Text("Remote has \(gitManager.behindCount) new commit\(gitManager.behindCount == 1 ? "" : "s")")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Button(action: {
-                        useRebase = false
-                        syncWithRemote()
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Merge")
-                                    .font(.system(size: 12, weight: .medium))
-                                Text("Safe: Creates a merge commit")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(8)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.borderless)
-                    
-                    .buttonStyle(.borderless)
-                    
-                    Button(action: {
-                        useRebase = true
-                        syncWithRemote()
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Rebase")
-                                    .font(.system(size: 12, weight: .medium))
-                                Text("Clean: Replays your commits on top")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(8)
-                        .background(Color.purple.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.borderless)
-                    
-                    Button(action: {
-                        showSyncOptions = false
-                        pullToNewBranchName = "\(gitManager.currentBranch)-remote"
-                        showPullToNewBranch = true
-                    }) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Pull to New Branch")
-                                    .font(.system(size: 12, weight: .medium))
-                                Text("Safe: Creates a fresh branch from remote")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(8)
-                        .background(Color.green.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.borderless)
-                }
-                
-                Button("Cancel") {
-                    showSyncOptions = false
-                }
-                .buttonStyle(.borderless)
-                .foregroundColor(.secondary)
-                .padding(.top, 8)
-            }
-            .padding()
-            .frame(width: 320)
         }
         .sheet(isPresented: $showCreateBranch) {
             VStack(spacing: 16) {
@@ -1408,7 +1333,10 @@ struct MainMenuView: View {
                 }
                 Spacer()
                 Button("Cancel") {
+                    UserDefaults.standard.set(folderPath, forKey: "gitRepoPath")
+                    addToRecents(folderPath)
                     createRepoPath = nil
+                    gitManager.refresh()
                 }
                 .buttonStyle(.borderless)
                 .focusable(false)
@@ -1421,7 +1349,12 @@ struct MainMenuView: View {
             // Content
             CreateRepoContentView(
                 folderPath: folderPath,
-                onDismiss: { createRepoPath = nil },
+                onDismiss: {
+                    UserDefaults.standard.set(folderPath, forKey: "gitRepoPath")
+                    addToRecents(folderPath)
+                    createRepoPath = nil
+                    gitManager.refresh()
+                },
                 onSuccess: { path in
                     UserDefaults.standard.set(path, forKey: "gitRepoPath")
                     addToRecents(path)
@@ -1588,6 +1521,147 @@ struct MainMenuView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+    }
+
+    var syncOptionsView: some View {
+        VStack(spacing: 12) {
+            // Header - matching settings/history/createRepo style
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.blue)
+                    Text("Sync with Remote")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                }
+                Spacer()
+                Button("Cancel") {
+                    showSyncOptions = false
+                }
+                .buttonStyle(.borderless)
+                .focusable(false)
+            }
+            .padding(.top, 4)
+
+            Divider()
+                .padding(.top, 4)
+
+            // Info banner
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundColor(.orange)
+                Text("Remote has \(gitManager.behindCount) new commit\(gitManager.behindCount == 1 ? "" : "s") on '\(gitManager.currentBranch)'")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color.orange.opacity(0.1))
+            .cornerRadius(6)
+
+            // Option Cards
+            VStack(spacing: 8) {
+                SyncOptionCard(
+                    icon: "arrow.triangle.merge",
+                    title: "Merge",
+                    subtitle: "Safe: Creates a merge commit with remote changes",
+                    tintColor: .blue
+                ) {
+                    useRebase = false
+                    syncWithRemote()
+                }
+
+                SyncOptionCard(
+                    icon: "arrow.triangle.swap",
+                    title: "Rebase",
+                    subtitle: "Clean: Replays your local commits on top of remote",
+                    tintColor: .purple
+                ) {
+                    useRebase = true
+                    syncWithRemote()
+                }
+
+                SyncOptionCard(
+                    icon: "plus.square.on.square",
+                    title: "Pull to New Branch",
+                    subtitle: "Isolated: Creates a new branch from remote without touching current work",
+                    tintColor: .green
+                ) {
+                    showSyncOptions = false
+                    pullToNewBranchName = "\(gitManager.currentBranch)-remote"
+                    showPullToNewBranch = true
+                }
+            }
+            .padding(.top, 2)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+    }
+}
+
+// Option card for Sync with Remote
+struct SyncOptionCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let tintColor: Color
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(tintColor)
+                    .frame(width: 30, height: 30)
+                    .background(tintColor.opacity(0.12))
+                    .cornerRadius(6)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Text(subtitle)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.secondary.opacity(0.5))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(isHovered ? Color.primary.opacity(0.06) : Color.primary.opacity(0.02))
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(isHovered ? tintColor.opacity(0.4) : Color.gray.opacity(0.15), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .focusable(false)
+        .onHover { inside in
+            isHovered = inside
+            if inside {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .onDisappear {
+            if isHovered {
+                NSCursor.pop()
+            }
+        }
     }
 }
 

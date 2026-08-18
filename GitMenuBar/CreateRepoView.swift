@@ -162,6 +162,11 @@ struct CreateRepoContentView: View {
             .buttonStyle(.plain)
             .disabled(repoName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
         }
+        .onAppear {
+            if !gitManager.isGitRepository(at: folderPath) {
+                _ = gitManager.initializeRepository(at: folderPath)
+            }
+        }
     }
     
     private func createRepository() {
@@ -196,23 +201,14 @@ struct CreateRepoContentView: View {
                         showErrorMessage("Failed to initialize local git repository")
                         return
                     }
-                    
-                    // Step 3: Create initial commit (only for newly initialized repos)
+                }
+                
+                // Step 3: Create initial commit if repo has no commits yet or has uncommitted changes
+                if !gitManager.hasCommits(at: folderPath) || gitManager.hasUncommittedChanges(at: folderPath) {
                     guard gitManager.createInitialCommit(at: folderPath, message: "Initial commit") else {
                         showErrorMessage("Failed to create initial commit")
                         return
                     }
-                } else {
-                    // Repository already exists - check if there are uncommitted changes
-                    // If there are, commit them
-                    if gitManager.hasUncommittedChanges(at: folderPath) {
-                        // There are uncommitted changes - commit them
-                        guard gitManager.createInitialCommit(at: folderPath, message: "Initial commit") else {
-                            showErrorMessage("Failed to commit existing changes")
-                            return
-                        }
-                    }
-                    // If no uncommitted changes, we can proceed (there must be at least one commit already)
                 }
                 
                 // Step 4: Add or update GitHub remote

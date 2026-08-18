@@ -223,8 +223,12 @@ class GitManager: ObservableObject {
         // Create initial commit
         let commitResult = executeGitCommand(in: path, args: ["commit", "--no-gpg-sign", "-m", message])
         if commitResult.failure {
-            print("Error creating initial commit: \(commitResult.output)")
-            return false
+            // If committing failed because no files exist in directory, try with --allow-empty
+            let emptyCommitResult = executeGitCommand(in: path, args: ["commit", "--allow-empty", "--no-gpg-sign", "-m", message])
+            if emptyCommitResult.failure {
+                print("Error creating initial commit: \(commitResult.output)")
+                return false
+            }
         }
         
         print("Created initial commit: \(message)")
@@ -244,6 +248,11 @@ class GitManager: ObservableObject {
     func hasUncommittedChanges(at path: String) -> Bool {
         let result = executeGitCommand(in: path, args: ["status", "--porcelain"])
         return !result.failure && !result.output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
+    func hasCommits(at path: String) -> Bool {
+        let result = executeGitCommand(in: path, args: ["rev-parse", "--verify", "HEAD"])
+        return !result.failure
     }
     
     func updateRemoteURL(at path: String, newURL: String) -> Bool {
