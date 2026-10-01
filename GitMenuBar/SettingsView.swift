@@ -11,7 +11,6 @@ struct SettingsView: View {
     @State private var showingFilePicker = false
     @AppStorage("gitRepoPath") private var storedRepoPath = ""
 
-
     var body: some View {
         VStack(spacing: 20) {
             Text("GitBar Settings")
@@ -71,10 +70,8 @@ struct SettingsView: View {
             }
         }
     }
-
 }
 
 #Preview {
     SettingsView()
 }
-
