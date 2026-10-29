@@ -515,17 +515,17 @@ struct MainMenuView: View {
                                     Spacer()
                                 }
                                 .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
+                                .frame(height: 20)
                             }
                         }
                     }
-                    .frame(maxHeight: min(CGFloat(gitManager.uncommittedFiles.count * 26), 200))
+                    // Fixed height so the list keeps its size when the repo changes underneath it
+                    .frame(height: min(CGFloat(gitManager.uncommittedFiles.count) * 24 - 4, 200))
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(6)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading) // Ensure left alignment even when empty
-            .id(gitManager.uncommittedFiles.count) // Force redraw when count changes
 
 
 
