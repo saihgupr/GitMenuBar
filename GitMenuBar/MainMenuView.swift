@@ -69,7 +69,9 @@ struct MainMenuView: View {
     @State private var branchNameToDelete = ""
     
     // Title scroll state
-    @State private var lastTitleScrollTime: Date = Date.distantPast
+    @State private var pendingScrollPath: String?
+    @State private var scrollAccumulator: CGFloat = 0
+    @State private var scrollCommitTask: DispatchWorkItem?
 
 
     
@@ -196,7 +198,7 @@ struct MainMenuView: View {
                 HStack(spacing: 4) {
                     Text("GitMenuBar")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    if let repoPath = UserDefaults.standard.string(forKey: "gitRepoPath"),
+                    if let repoPath = pendingScrollPath ?? UserDefaults.standard.string(forKey: "gitRepoPath"),
                        !repoPath.isEmpty {
                         let projectName = URL(fileURLWithPath: repoPath).lastPathComponent
                         
@@ -231,10 +233,11 @@ struct MainMenuView: View {
                                     showRepoOptions = true
                                 }
                                 .modifier(TitleScrollWheelModifier(
-                                    onScroll: { deltaY in
-                                        cycleRecentRepo(scrollDelta: deltaY)
+                                    onScroll: { deltaY, precise in
+                                        cycleRecentRepo(scrollDelta: deltaY, precise: precise)
                                     },
                                     onHoverEnd: {
+                                        commitPendingRepo()
                                         if let path = UserDefaults.standard.string(forKey: "gitRepoPath"), !path.isEmpty {
                                             addToRecents(path)
                                         }
@@ -248,10 +251,11 @@ struct MainMenuView: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                                 .modifier(TitleScrollWheelModifier(
-                                    onScroll: { deltaY in
-                                        cycleRecentRepo(scrollDelta: deltaY)
+                                    onScroll: { deltaY, precise in
+                                        cycleRecentRepo(scrollDelta: deltaY, precise: precise)
                                     },
                                     onHoverEnd: {
+                                        commitPendingRepo()
                                         if let path = UserDefaults.standard.string(forKey: "gitRepoPath"), !path.isEmpty {
                                             addToRecents(path)
                                         }
@@ -1439,30 +1443,38 @@ struct MainMenuView: View {
         }
     }
     
-    private func cycleRecentRepo(scrollDelta: CGFloat) {
-        let now = Date()
-        guard now.timeIntervalSince(lastTitleScrollTime) > 0.1 else { return }
-        
+    private func cycleRecentRepo(scrollDelta: CGFloat, precise: Bool) {
         let paths = recentPaths
         guard paths.count > 1 else { return }
         
-        let currentPath = UserDefaults.standard.string(forKey: "gitRepoPath") ?? ""
-        let currentIndex = paths.firstIndex(of: currentPath) ?? 0
+        // Trackpad deltas are fine-grained; wheel notches are single units.
+        scrollAccumulator += precise ? scrollDelta : (scrollDelta < 0 ? -1 : 1)
+        let stepThreshold: CGFloat = precise ? 12 : 1
+        guard abs(scrollAccumulator) >= stepThreshold else { return }
+        let goingDown = scrollAccumulator < 0
+        scrollAccumulator = 0
         
-        let newIndex: Int
-        if scrollDelta < 0 {
-            // Scroll down -> next in list (clamped at bottom)
-            newIndex = min(currentIndex + 1, paths.count - 1)
-        } else {
-            // Scroll up -> previous in list (clamped at top)
-            newIndex = max(currentIndex - 1, 0)
-        }
-        
+        let basePath = pendingScrollPath ?? UserDefaults.standard.string(forKey: "gitRepoPath") ?? ""
+        let baseIndex = paths.firstIndex(of: basePath) ?? 0
+        let newIndex = goingDown ? min(baseIndex + 1, paths.count - 1) : max(baseIndex - 1, 0)
         let targetPath = paths[newIndex]
-        guard targetPath != currentPath else { return }
         
-        lastTitleScrollTime = now
-        UserDefaults.standard.set(targetPath, forKey: "gitRepoPath")
+        // At either end of the list: keep the current preview, just stop moving
+        guard targetPath != basePath else { return }
+        
+        pendingScrollPath = targetPath
+        // Preview while scrolling, commit once the scroll settles
+        scrollCommitTask?.cancel()
+        let task = DispatchWorkItem { commitPendingRepo() }
+        scrollCommitTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9, execute: task)
+    }
+    
+    private func commitPendingRepo() {
+        guard let path = pendingScrollPath else { return }
+        pendingScrollPath = nil
+        scrollAccumulator = 0
+        UserDefaults.standard.set(path, forKey: "gitRepoPath")
         gitManager.refresh()
     }
     
@@ -1889,7 +1901,7 @@ struct VisualEffectView: NSViewRepresentable {
 }
 
 struct TitleScrollWheelModifier: ViewModifier {
-    let onScroll: (CGFloat) -> Void
+    let onScroll: (CGFloat, Bool) -> Void
     let onHoverEnd: () -> Void
     
     @State private var isHovering = false
@@ -1907,7 +1919,7 @@ struct TitleScrollWheelModifier: ViewModifier {
                             let delta = event.deltaY != 0 ? event.deltaY : event.scrollingDeltaY
                             if abs(delta) > 0.01 {
                                 NSCursor.pointingHand.set()
-                                onScroll(delta)
+                                onScroll(delta, event.hasPreciseScrollingDeltas)
                                 return nil
                             }
                             return event
