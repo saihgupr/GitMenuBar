@@ -9,3 +9,6 @@ All notable changes to GitMenuBar will be documented in this file.
 
 ### Changed
 - **Scroll to Switch Is Easier to Land On**: Scrolling now previews the repository name in the header and only switches once the scroll settles, so a fast flick no longer jumps past the project you wanted or switches mid-scroll.
+
+### Fixed
+- **Modified Files List Updates on Repo Switch**: Switching repositories from the header no longer leaves the file list blank until the window is reopened.
